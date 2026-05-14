@@ -1,0 +1,5 @@
+version: "2"
+
+# Clean ngrok config to avoid any reserved/custom domain from the default ngrok.yml.
+# This lets `ngrok http 8000 --config ngrok_clean.yml` create a new random ngrok-free URL.
+

@@ -1,0 +1,49 @@
+# Environment & secrets
+.env
+.env.local
+.env.production
+
+# Python
+.venv/
+venv/
+__pycache__/
+*.py[cod]
+*.pyo
+*.egg-info/
+*.egg
+dist/
+build/
+*.whl
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+foodleaf.code-workspace
+
+# Testing & linting
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+
+# Node (if landing page added later)
+node_modules/
+.next/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+
+# Windsurf / Claude
+.windsurf/
+.claude/
+
+# Debug scripts
+_dbg.py

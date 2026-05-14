@@ -1,0 +1,86 @@
+{
+  "_meta": {
+    "description": "Mock Swiggy Dineout for Hyderabad. Slot generation is deterministic from date+restaurant.",
+    "city": "Hyderabad",
+    "last_updated": "2026-04-27"
+  },
+  "restaurants": [
+    {
+      "provider_restaurant_id": "DINE-HYD-D001",
+      "name": "Cream Centre - Inorbit Mall",
+      "cuisines": ["North Indian", "Italian", "Mexican", "Continental"],
+      "rating": 4.3,
+      "cost_for_two_inr": 1200,
+      "distance_km": 5.8,
+      "image_url": null,
+      "active_deals": ["Veg Buffet ₹699 unlimited (Mon-Fri)", "Flat 25% off on weekdays", "Free dessert on bookings of 4+"],
+      "location": {"latitude": 17.4474, "longitude": 78.3662, "pincode": "500032", "city": "Hyderabad", "address_line": "Inorbit Mall", "landmark": "Madhapur"}
+    },
+    {
+      "provider_restaurant_id": "DINE-HYD-D002",
+      "name": "Barbeque Nation - Hitec City",
+      "cuisines": ["North Indian", "Barbecue", "Buffet"],
+      "rating": 4.4,
+      "cost_for_two_inr": 1700,
+      "distance_km": 3.4,
+      "image_url": null,
+      "active_deals": ["Lunch buffet ₹949 (Veg) / ₹1099 (Non-veg)", "20% off on advance booking"],
+      "location": {"latitude": 17.4486, "longitude": 78.3848, "pincode": "500081", "city": "Hyderabad", "address_line": "Hitec City Main Road", "landmark": null}
+    },
+    {
+      "provider_restaurant_id": "DINE-HYD-D003",
+      "name": "Absolute Barbecues - Madhapur",
+      "cuisines": ["Barbecue", "North Indian", "Continental", "Buffet"],
+      "rating": 4.5,
+      "cost_for_two_inr": 1600,
+      "distance_km": 2.9,
+      "image_url": null,
+      "active_deals": ["Buffet ₹1099 weekday lunch", "Birthday discount: 50% off for the birthday person"],
+      "location": {"latitude": 17.4451, "longitude": 78.3908, "pincode": "500081", "city": "Hyderabad", "address_line": "Madhapur", "landmark": null}
+    },
+    {
+      "provider_restaurant_id": "DINE-HYD-D004",
+      "name": "Paradise Restaurant - Gachibowli",
+      "cuisines": ["Hyderabadi", "Biryani", "Mughlai"],
+      "rating": 4.4,
+      "cost_for_two_inr": 800,
+      "distance_km": 2.4,
+      "image_url": null,
+      "active_deals": ["20% off dine-in"],
+      "location": {"latitude": 17.4408, "longitude": 78.3782, "pincode": "500032", "city": "Hyderabad", "address_line": "Gachibowli", "landmark": null}
+    },
+    {
+      "provider_restaurant_id": "DINE-HYD-D005",
+      "name": "Olive Bistro",
+      "cuisines": ["Mediterranean", "Italian", "Continental"],
+      "rating": 4.6,
+      "cost_for_two_inr": 2400,
+      "distance_km": 4.2,
+      "image_url": null,
+      "active_deals": ["Anniversary special: Free cake & decor for couples"],
+      "location": {"latitude": 17.4218, "longitude": 78.4519, "pincode": "500034", "city": "Hyderabad", "address_line": "Banjara Hills", "landmark": "Road No 8"}
+    },
+    {
+      "provider_restaurant_id": "DINE-HYD-D006",
+      "name": "Chutneys - Banjara Hills",
+      "cuisines": ["South Indian"],
+      "rating": 4.4,
+      "cost_for_two_inr": 700,
+      "distance_km": 4.5,
+      "image_url": null,
+      "active_deals": ["Free filter coffee with breakfast bookings"],
+      "location": {"latitude": 17.4156, "longitude": 78.4347, "pincode": "500034", "city": "Hyderabad", "address_line": "Banjara Hills", "landmark": null}
+    },
+    {
+      "provider_restaurant_id": "DINE-HYD-D007",
+      "name": "Tatva - Vegetarian Multicuisine",
+      "cuisines": ["Indian", "Continental", "Asian", "Mexican"],
+      "rating": 4.5,
+      "cost_for_two_inr": 1400,
+      "distance_km": 3.8,
+      "image_url": null,
+      "active_deals": ["Pure veg buffet ₹899 weekdays", "10% off for first-time bookings"],
+      "location": {"latitude": 17.4219, "longitude": 78.4485, "pincode": "500034", "city": "Hyderabad", "address_line": "Banjara Hills", "landmark": "Road No 1"}
+    }
+  ]
+}
