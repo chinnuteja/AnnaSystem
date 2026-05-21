@@ -197,6 +197,8 @@ class VoiceSession(Base):
             "order_placed", "cancelled", "amended", "failed",
             "still_pending", "clarification_requested", "audio_unavailable",
             "payment_rejected",
+            "greet", "chitchat", "track", "unclear",
+            "awaiting_payer_approval", "awaiting_location",
             name="session_outcome_enum", create_constraint=True,
         ),
         nullable=True,

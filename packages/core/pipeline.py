@@ -42,6 +42,26 @@ logger = logging.getLogger("foodleaf.pipeline")
 
 DEFAULT_LOCATION = Location(latitude=17.4486, longitude=78.3792, pincode="500032", city="Hyderabad")
 DEFAULT_ADDRESS_LABEL = "Flat 304, Madhapur, Hyderabad"
+
+_ADDR_REDIS_KEY = "user:{uid}:delivery_address"
+
+async def _save_user_address(redis, user_id: str, address: str):
+    """Persist user's delivery address in Redis (survives session cancels)."""
+    await redis.set(_ADDR_REDIS_KEY.format(uid=user_id), address, ex=86400 * 30)
+
+async def _get_user_address(redis, user_id: str) -> str | None:
+    """Get user's persisted delivery address."""
+    return await redis.get(_ADDR_REDIS_KEY.format(uid=user_id))
+
+async def _resolve_address(ctx) -> str:
+    """Resolve address: context > Redis persisted > default."""
+    addr = ctx.ctx.get("delivery_address_label")
+    if addr:
+        return addr
+    saved = await _get_user_address(ctx.redis, ctx.user_id)
+    if saved:
+        return saved
+    return DEFAULT_ADDRESS_LABEL
 DEFAULT_LOCATION_DELHI = Location(latitude=28.6139, longitude=77.2090, pincode="110001", city="Delhi")
 DEFAULT_ADDRESS_LABEL_DELHI = "A-15, Lajpat Nagar, Delhi"
 
@@ -110,7 +130,7 @@ async def process_text_order(
     redis = csm._redis  # noqa: SLF001
     fam_ctx = await resolve_family_context(from_phone, redis)
     if fam_ctx is None:
-        return _simple_reply(from_phone, "Sorry, ye number register nahi hai. Apne family admin se contact karein." if from_phone.startswith("+91") else "Sorry, mee number register avvaledu. Mee family admin ni contact cheyandi.")
+        return _simple_reply(from_phone, "Sorry, this number isn't registered yet. Please contact your family admin to set up your account.")
 
     user = fam_ctx.user
     user_id = str(user.id)
@@ -126,9 +146,9 @@ async def process_text_order(
         csm, user_id, current, action="UNKNOWN", text=text, correction_phrases=(),
     )
     if parsing_block:
-        return _simple_reply(from_phone, "Thoda wait karein, aapka pichla request process ho raha hai." if fam_ctx.primary_locale.startswith("hi") else "Konchem wait cheyandi, mee previous request process avuthundi.", state="PARSING")
+        return _simple_reply(from_phone, "Just a moment, your previous request is still being processed.", state="PARSING")
 
-    history = await load_history(redis, user_id, max_turns=8)
+    history = await load_history(redis, user_id, max_turns=12)
 
     # Build family context dict for brain prompt
     family_context_dict = fam_ctx.to_cache_dict()
@@ -138,7 +158,7 @@ async def process_text_order(
 
     brain_action = await decide(
         text=text, conversation_history=history, current_state=current,
-        language=user.preferred_language or "hi-IN", redis=redis,
+        language=user.preferred_language or "en-IN", redis=redis,
         family_context=family_context_dict, occasion_hint=occasion_hint,
     )
 
@@ -146,7 +166,7 @@ async def process_text_order(
     language = {
         "te": "te-IN", "en": "en-IN", "te-en": "te-IN",
         "hi": "hi-IN", "hi-en": "hi-IN",
-    }.get(lang_code, "hi-IN")
+    }.get(lang_code, "en-IN")
 
     ctx = _Ctx(
         csm=csm, redis=redis, user_id=user_id, family_id=family_id,
@@ -159,8 +179,15 @@ async def process_text_order(
         family_ctx=fam_ctx,
     )
 
-    handler = _ACTION_HANDLERS.get(brain_action.action, _handle_unclear)
-    result = await handler(ctx)
+    # --- Address confirmation flow intercept ---
+    _flow = ((current or {}).get("context") or {}).get("flow", "")
+    if _flow == "awaiting_address_confirm":
+        result = await _handle_address_confirm_response(ctx)
+    elif _flow == "awaiting_address_input":
+        result = await _handle_address_text_input(ctx)
+    else:
+        handler = _ACTION_HANDLERS.get(brain_action.action, _handle_unclear)
+        result = await handler(ctx)
 
     await save_turn(redis, user_id, "user", text)
     await save_turn(redis, user_id, "bot", result.get("reply_text", ""))
@@ -301,8 +328,13 @@ async def _handle_order_items(ctx: _Ctx) -> dict:
     a = ctx.brain_action
     if not a.items:
         return await _handle_unclear(ctx)
+    # Only redirect to discovery if domain is explicitly food_delivery/dineout
+    # AND items look like restaurant dishes (no packaged grocery keywords)
+    _grocery_keywords = {"packet", "packets", "kg", "g", "ml", "l", "litre", "liter", "pack", "box"}
     if a.domain_hint in {"food_delivery", "dineout"}:
-        return await _handle_discover(ctx)
+        item_texts = " ".join(i.text.lower() for i in a.items) + " " + " ".join((i.unit or "").lower() for i in a.items)
+        if not any(kw in item_texts for kw in _grocery_keywords):
+            return await _handle_discover(ctx)
 
     from app.schemas.message import ParsedItem as SchemasParsedItem
     intent = ParsedIntent(
@@ -321,7 +353,7 @@ async def _handle_order_items(ctx: _Ctx) -> dict:
         return await _handle_no_sku_match(ctx, intent)
 
     if quote and quote.line_items and not any(li.in_stock for li in quote.line_items):
-        addr = ctx.ctx.get("delivery_address_label") or DEFAULT_ADDRESS_LABEL
+        addr = await _resolve_address(ctx)
         ct = render_cart_confirmation(quote, address_label=addr, language=ctx.language, candidates=candidates)
         try:
             await ctx.csm.transition(ctx.user_id, "IDLE")
@@ -330,7 +362,7 @@ async def _handle_order_items(ctx: _Ctx) -> dict:
         await _persist(ctx, intent=intent, conversation_state="IDLE", outcome="failed", failure_reason="out_of_stock")
         return _reply(ctx, ct, "IDLE")
 
-    addr = ctx.ctx.get("delivery_address_label") or DEFAULT_ADDRESS_LABEL
+    addr = await _resolve_address(ctx)
     ct = render_cart_confirmation(quote, address_label=addr, language=ctx.language, candidates=candidates)
     cart_data = _cart_data_from_quote(quote, cart)
 
@@ -353,6 +385,22 @@ async def _handle_order_items(ctx: _Ctx) -> dict:
 
 async def _handle_discover(ctx: _Ctx) -> dict:
     a = ctx.brain_action
+    # Guard: vague grocery requests should NOT go to discovery — redirect to chitchat
+    _grocery_words = {"grocery", "groceries", "kavali", "chahiye", "essentials", "saman", "ration"}
+    text_lower = ctx.text.lower()
+    if any(w in text_lower for w in _grocery_words) and a.domain_hint not in {"food_delivery", "dineout"}:
+        if ctx.language.startswith("hi"):
+            reply = "Ji haan! Bataiye kya kya chahiye — milk, atta, rice, oil?"
+        elif ctx.language == "en-IN":
+            reply = "Sure! Tell me what items you need — milk, atta, rice, oil?"
+        else:
+            reply = "Sure Chinnu ji! Em em kavali cheppandi — milk, atta, rice, oil?"
+        try:
+            await ctx.csm.transition(ctx.user_id, "IDLE")
+        except Exception:
+            pass
+        await _persist(ctx, conversation_state="IDLE", outcome="chitchat")
+        return _reply(ctx, reply, "IDLE")
     # Build the ParsedIntent early so it's available for both code paths
     intent = ParsedIntent(action="DISCOVER", goal="discover", raw_text=a.discovery_query or ctx.text,
                           domain_hint=a.domain_hint, query_type="open_discovery", language_detected=ctx.language)
@@ -491,6 +539,23 @@ async def _handle_confirm(ctx: _Ctx) -> dict:
                 },
             }
 
+    # --- Address confirmation step before placing order ---
+    addr = await _resolve_address(ctx)
+    if ctx.language.startswith("hi"):
+        addr_reply = f"📍 Delivery address: {addr}\n\nKya yeh address sahi hai? (haan / nahi)"
+    elif ctx.language == "en-IN":
+        addr_reply = f"📍 Delivery address: {addr}\n\nIs this address correct? (yes / no)"
+    else:
+        addr_reply = f"📍 Delivery address: {addr}\n\nEe address correct aa? (avunu / kadu)"
+    await ctx.csm.transition(ctx.user_id, "AWAITING_CONFIRMATION", context={
+        **ctx.ctx, "flow": "awaiting_address_confirm",
+    })
+    return _reply(ctx, addr_reply, "AWAITING_CONFIRMATION")
+
+
+async def _place_order_final(ctx: _Ctx) -> dict:
+    """Actually place the order after address is confirmed."""
+    cart_data = ctx.ctx.get("resolved_cart", {})
     # Auto-approve (below threshold or no family context) — place order directly
     logger.info("User %s CONFIRMED the order.", ctx.user_id)
     await ctx.csm.transition(ctx.user_id, "EXECUTING")
@@ -512,6 +577,91 @@ async def _handle_confirm(ctx: _Ctx) -> dict:
     await ctx.csm.transition(ctx.user_id, "COMPLETE")
     await _update_voice_session_status(ctx.vsid, "COMPLETE", outcome)
     return _reply(ctx, reply, "COMPLETE")
+
+
+async def _handle_address_confirm_response(ctx: _Ctx) -> dict:
+    """Handle user's yes/no response to address confirmation."""
+    text_lower = ctx.text.lower().strip()
+    _yes_words = {"yes", "haan", "ha", "haa", "avunu", "antey", "sare", "ok", "confirm", "correct", "right", "ji"}
+    _no_words = {"no", "nahi", "nah", "kadu", "vaddu", "wrong", "change", "galat", "incorrect"}
+
+    if any(w in text_lower.split() for w in _yes_words) or any(w == text_lower for w in _yes_words):
+        return await _place_order_final(ctx)
+
+    if any(w in text_lower.split() for w in _no_words) or any(w == text_lower for w in _no_words):
+        if ctx.language.startswith("hi"):
+            reply = "Theek hai! Apna delivery address type karein ya WhatsApp pe location share karein.\n\nExample: Flat 201, Saikrupa Apartments, Kukatpally, 500072"
+        elif ctx.language == "en-IN":
+            reply = "Sure! Please type your delivery address or share your location on WhatsApp.\n\nExample: Flat 201, Saikrupa Apartments, Kukatpally, 500072"
+        else:
+            reply = "Sare! Mee delivery address type cheyyandi leda WhatsApp lo location share cheyyandi.\n\nExample: Flat 201, Saikrupa Apartments, Kukatpally, 500072"
+        await ctx.csm.transition(ctx.user_id, "AWAITING_CONFIRMATION", context={
+            **ctx.ctx, "flow": "awaiting_address_input",
+        })
+        return _reply(ctx, reply, "AWAITING_CONFIRMATION")
+
+    # User typed something else — might be an address directly
+    return await _handle_address_text_input(ctx)
+
+
+async def _handle_address_text_input(ctx: _Ctx) -> dict:
+    """Parse a text address from user and ask for missing details or confirm."""
+    import re
+    text = ctx.text.strip()
+
+    # Check if user wants to cancel
+    _cancel_words = {"cancel", "vaddu", "nahi", "stop"}
+    if any(w in text.lower().split() for w in _cancel_words):
+        return await _handle_cancel(ctx)
+
+    # Parse address components
+    pincode_match = re.search(r'\b(\d{6})\b', text)
+    pincode = pincode_match.group(1) if pincode_match else None
+    flat_match = re.search(r'(?:flat|door|house|apt|#)\s*(?:no\.?\s*)?(\d[\w/-]*)', text, re.IGNORECASE)
+    flat_no = flat_match.group(0).strip() if flat_match else None
+
+    # Check if address seems incomplete (no flat/door number)
+    has_flat = flat_no is not None or re.search(r'\d+[-/]\d+', text) is not None
+    addr_text = text
+
+    if not has_flat:
+        # Address is too sparse — ask for flat number
+        if ctx.language.startswith("hi"):
+            reply = f"📍 Area samajh gaya: {text}\n\nAapka flat/house number kya hai?"
+        elif ctx.language == "en-IN":
+            reply = f"📍 Got the area: {text}\n\nWhat's your flat/house number?"
+        else:
+            reply = f"📍 Area ardham ayindi: {text}\n\nMee flat/house number cheppandi?"
+        await ctx.csm.transition(ctx.user_id, "AWAITING_CONFIRMATION", context={
+            **ctx.ctx, "flow": "awaiting_address_input",
+            "partial_address": text,
+        })
+        return _reply(ctx, reply, "AWAITING_CONFIRMATION")
+
+    # If we have a partial address from before, combine
+    partial = ctx.ctx.get("partial_address", "")
+    if partial and len(text.split()) <= 4:
+        addr_text = f"{text}, {partial}"
+
+    # Address is complete enough — update and place order
+    if ctx.language.startswith("hi"):
+        addr_reply = f"📍 Delivery address updated: {addr_text}\n\nOrder place kar raha hoon..."
+    elif ctx.language == "en-IN":
+        addr_reply = f"📍 Delivery address updated: {addr_text}\n\nPlacing your order..."
+    else:
+        addr_reply = f"📍 Delivery address updated: {addr_text}\n\nOrder place chestunnanu..."
+
+    # Update address in context and Redis, then place order
+    ctx.ctx["delivery_address_label"] = addr_text
+    await _save_user_address(ctx.redis, ctx.user_id, addr_text)
+    
+    await ctx.csm.transition(ctx.user_id, "AWAITING_CONFIRMATION", context={
+        **ctx.ctx, "flow": "pending_order", "delivery_address_label": addr_text,
+    })
+    order_result = await _place_order_final(ctx)
+    # Prepend the address update message
+    order_result["reply_text"] = addr_reply + "\n\n" + order_result["reply_text"]
+    return order_result
 
 
 async def _handle_cancel(ctx: _Ctx) -> dict:
@@ -571,6 +721,7 @@ async def _handle_clear_cart(ctx: _Ctx) -> dict:
 
 async def _handle_update_address(ctx: _Ctx) -> dict:
     addr = ctx.brain_action.address_text or ctx.text
+    await _save_user_address(ctx.redis, ctx.user_id, addr)
     if not ctx.current or ctx.current.get("state") != ConversationState.AWAITING_CONFIRMATION.value:
         reply = "Address save chesanu. Emi order cheyyali?" if ctx.language != "en-IN" else "Address saved. What would you like to order?"
         return _reply(ctx, reply, "IDLE")
@@ -773,8 +924,8 @@ async def _handle_catalog_selection(ctx: _Ctx) -> dict:
     qty = int(ctx.ctx.get("quantity") or 1)
     cart = await provider.assemble_cart([CartItem(canonical_sku=sku, quantity=qty)], ctx.loc())
     quote = await provider.quote_cart(cart)
-    ct = render_cart_confirmation(quote, address_label=ctx.ctx.get("delivery_address_label") or DEFAULT_ADDRESS_LABEL,
-                                  language=ctx.ctx.get("language", "te-IN"), candidates=[])
+    addr = await _resolve_address(ctx)
+    ct = render_cart_confirmation(quote, address_label=addr, language=ctx.ctx.get("language", "te-IN"), candidates=[])
     cart_data = _cart_data_from_quote(quote, cart)
     await ctx.csm.restore_session(ordering_user_id=ctx.user_id, voice_session_id=ctx.vsid,
                                    state="AWAITING_CONFIRMATION", context={
@@ -803,7 +954,7 @@ async def _offer_item_options(ctx: _Ctx, intent: ParsedIntent, location: Locatio
         candidates, cart, quote = await resolve_and_quote(intent, location)
         if not candidates or quote is None:
             return await _handle_no_sku_match(ctx, intent)
-        addr = ctx.ctx.get("delivery_address_label") or DEFAULT_ADDRESS_LABEL
+        addr = await _resolve_address(ctx)
         ct = render_cart_confirmation(quote, address_label=addr, language=ctx.language, candidates=candidates)
         cart_data = _cart_data_from_quote(quote, cart)
         # Ensure session exists before transitioning
@@ -874,15 +1025,15 @@ async def process_location_message(
     redis = csm._redis  # noqa: SLF001
     fam_ctx = await resolve_family_context(from_phone, redis)
     if fam_ctx is None:
-        return _simple_reply(from_phone, "Sorry, ye number register nahi hai. Apne family admin se contact karein." if from_phone.startswith("+91") else "Sorry, mee number register avvaledu. Mee family admin ni contact cheyandi.")
+        return _simple_reply(from_phone, "Sorry, this number isn't registered yet. Please contact your family admin to set up your account.")
     user = fam_ctx.user
     user_id = str(user.id)
     current = await csm.current_state(user_id)
     if not current or current.get("state") != ConversationState.AWAITING_CONFIRMATION.value:
-        return _simple_reply(from_phone, "Location vachindi. Emi order leda discover cheyyali?")
+        return _simple_reply(from_phone, "Got your location! What would you like to order or discover nearby?")
     context = current.get("context") or {}
     if context.get("flow") != "awaiting_location":
-        return {"reply_text": "Location save chesanu. Pending discovery request ledu.",
+        return {"reply_text": "Location saved. No pending discovery request right now.",
                 "reply_to": from_phone, "voice_session_id": current.get("session_id"), "state": current["state"]}
     vsid = current.get("session_id", str(uuid.uuid4()))
     intent = ParsedIntent.model_validate(context["parsed_intent"])
@@ -909,32 +1060,35 @@ async def _persist(
     ctx: _Ctx, *, intent=None, resolved_cart=None, conversation_state="IDLE",
     outcome="still_pending", failure_reason=None, voice_session_id=None,
 ):
-    vsid = voice_session_id or ctx.vsid
-    if ctx.turn > 0 and outcome == "still_pending":
-        resolved_cart = {**(resolved_cart or {}), "_turn_count": ctx.turn}
-    intent_obj = intent or _brain_action_to_intent(ctx.brain_action)
-    async with get_session() as session:
-        vs = VoiceSession(
-            id=uuid.UUID(vsid) if len(vsid) == 36 else uuid.uuid4(),
-            family_id=uuid.UUID(ctx.family_id),
-            ordering_user_id=uuid.UUID(ctx.user_id),
-            whatsapp_message_id=ctx.whatsapp_message_id,
-            input_mode=ctx.input_mode,
-            raw_text=ctx.text,
-            audio_r2_key=ctx.audio_r2_key,
-            transcription_raw=ctx.transcription_raw,
-            normalized_text=ctx.text.strip().lower(),
-            language_detected=ctx.language,
-            transcription_confidence=ctx.transcription_confidence,
-            parsed_intent=intent_obj.model_dump(),
-            resolved_cart=resolved_cart,
-            conversation_state=conversation_state,
-            pipeline_latency_ms=int((time.monotonic() - ctx.start_time) * 1000),
-            outcome=outcome,
-            failure_reason=failure_reason,
-            ack_message_sent=False,
-        )
-        await session.merge(vs)
+    try:
+        vsid = voice_session_id or ctx.vsid
+        if ctx.turn > 0 and outcome == "still_pending":
+            resolved_cart = {**(resolved_cart or {}), "_turn_count": ctx.turn}
+        intent_obj = intent or _brain_action_to_intent(ctx.brain_action)
+        async with get_session() as session:
+            vs = VoiceSession(
+                id=uuid.UUID(vsid) if len(vsid) == 36 else uuid.uuid4(),
+                family_id=uuid.UUID(ctx.family_id),
+                ordering_user_id=uuid.UUID(ctx.user_id),
+                whatsapp_message_id=ctx.whatsapp_message_id,
+                input_mode=ctx.input_mode,
+                raw_text=ctx.text,
+                audio_r2_key=ctx.audio_r2_key,
+                transcription_raw=ctx.transcription_raw,
+                normalized_text=ctx.text.strip().lower(),
+                language_detected=ctx.language,
+                transcription_confidence=ctx.transcription_confidence,
+                parsed_intent=intent_obj.model_dump(),
+                resolved_cart=resolved_cart,
+                conversation_state=conversation_state,
+                pipeline_latency_ms=int((time.monotonic() - ctx.start_time) * 1000),
+                outcome=outcome,
+                failure_reason=failure_reason,
+                ack_message_sent=False,
+            )
+            await session.merge(vs)
+    except Exception as e:
+        logger.error("_persist failed (non-fatal): %s", e)
 
 
 def _brain_action_to_intent(action: BrainAction) -> ParsedIntent:

@@ -16,7 +16,7 @@ import uuid
 
 from sqlalchemy import select
 
-from packages.core.db import get_session, init_db
+from packages.core.db import get_session
 from packages.core.models import Family, FamilyPayer, User
 
 
@@ -33,8 +33,6 @@ PAYER_ID = uuid.UUID("a0000000-0000-0000-0000-000000000030")
 
 
 async def seed() -> None:
-    await init_db()
-
     async with get_session() as session:
         # Check if already seeded
         existing = await session.execute(

@@ -66,7 +66,7 @@ def _brain_action_to_parsed_intent(action: BrainAction, raw_text: str, language:
 
 
 async def parse_text_message(
-    text: str, language: str = "te-IN", conversation_context: dict | None = None,
+    text: str, language: str = "en-IN", conversation_context: dict | None = None,
 ) -> ParsedIntent:
     """Parse a text message using the brain. Returns ParsedIntent for backward compat."""
     brain_action = await decide(

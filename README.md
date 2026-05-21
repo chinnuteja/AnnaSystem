@@ -11,7 +11,6 @@
 
 <p align="center">
   <img src="https://img.shields.io/badge/python-3.11+-blue?logo=python&logoColor=white" />
-  <img src="https://img.shields.io/badge/Gemini-Flash-orange?logo=google&logoColor=white" />
   <img src="https://img.shields.io/badge/WhatsApp-Cloud_API-25D366?logo=whatsapp&logoColor=white" />
   <img src="https://img.shields.io/badge/Swiggy-MCP-FF5200?logoColor=white" />
   <img src="https://img.shields.io/badge/FastAPI-009688?logo=fastapi&logoColor=white" />
@@ -72,7 +71,7 @@ No app downloads. No tech literacy. No guilt. Just WhatsApp.
               └────────────┬────────────────┘
                            │
               ┌────────────▼────────────────┐
-              │     Gemini Brain (v3_anna)   │
+              │     AI Brain (v3_anna)       │
               │  Hindi-first, family-aware   │
               │  role-context in prompt      │
               │  occasion hints injected     │
@@ -132,7 +131,7 @@ AnnaSystem/
 │   └── api/
 │       └── app/
 │           ├── agents/              # AI agents
-│           │   ├── brain.py         # Gemini LLM orchestrator
+│           │   ├── brain.py         # LLM orchestrator
 │           │   ├── brain_prompts.py # v1/v2/v3_anna prompt versions
 │           │   ├── sku_mapper.py    # text → canonical SKU resolver
 │           │   ├── executor.py      # order placement
@@ -197,7 +196,7 @@ AnnaSystem/
 
 - Python 3.11+
 - Docker (for Postgres + Redis)
-- A Gemini API key ([Google AI Studio](https://aistudio.google.com/))
+- An LLM API key (see `.env.example` for supported providers)
 - WhatsApp Business API credentials (for production)
 
 ### 1. Clone & setup
@@ -225,7 +224,7 @@ docker compose up -d   # starts Postgres (pgvector) + Redis
 
 ```bash
 cp .env.example .env
-# Edit .env — add your GEMINI_API_KEY at minimum
+# Edit .env — add your LLM API key at minimum
 ```
 
 ### 4. Database
@@ -262,14 +261,12 @@ All tests run against mocked providers and in-memory Redis — no external servi
 |----------|----------|-------------|
 | `DATABASE_URL` | Yes | PostgreSQL connection string |
 | `REDIS_URL` | Yes | Redis connection string |
-| `GEMINI_API_KEY` | Yes | Google Gemini API key |
-| `GEMINI_MODEL` | No | Default: `gemini-2.0-flash` |
+| `LLM_API_KEY` | Yes | Primary LLM provider key |
 | `BRAIN_PROMPT_VERSION` | No | Default: `v3_anna` |
 | `WHATSAPP_ACCESS_TOKEN` | Prod | Meta Cloud API token |
 | `WHATSAPP_PHONE_NUMBER_ID` | Prod | WhatsApp Business phone ID |
 | `WHATSAPP_VERIFY_TOKEN` | Prod | Webhook verification token |
-| `SARVAM_API_KEY` | Prod | Hindi voice transcription |
-| `AZURE_OPENAI_API_KEY` | No | Optional fallback LLM |
+| `SARVAM_API_KEY` | Prod | Voice transcription (Hindi/Telugu) |
 
 ---
 
@@ -423,21 +420,15 @@ All tests use **mocked providers and in-memory Redis** — zero external depende
 
 ---
 
-## Brain Prompt Versions
+## Brain Prompt Engineering
 
-| Version | Persona | Language | Family-Aware |
-|---------|---------|----------|-------------|
-| `v1` | FoodLeaf (grocery bot) | Telugu-first | No |
-| `v2` | FoodLeaf (improved) | Telugu-first | No |
-| **`v3_anna`** | **Anna (family concierge)** | **Hindi-first** | **Yes** |
-
-Set via `BRAIN_PROMPT_VERSION=v3_anna` in `.env` (default).
-
-The `v3_anna` prompt injects:
+The system uses versioned prompts (`v3_anna` is current). The prompt dynamically injects:
 - Family context (who's talking, their role, family name)
 - Payer context (if talking to payer, enable approve/reject actions)
 - Occasion hints (if a festival is near)
 - Role-appropriate language (respectful "ji" for elders, casual for younger)
+
+Set via `BRAIN_PROMPT_VERSION=v3_anna` in `.env`.
 
 ---
 
@@ -446,8 +437,8 @@ The `v3_anna` prompt injects:
 | Component | Technology | Why |
 |-----------|-----------|-----|
 | **API** | FastAPI | Async-native, type-safe |
-| **Brain** | Gemini 2.0 Flash | Fast, multilingual, structured JSON output |
-| **Transcription** | Sarvam AI | Best Hindi voice-to-text for Indian accents |
+| **Brain** | LLM with structured output | Multilingual intent parsing + action dispatch |
+| **Transcription** | Sarvam AI | Hindi/Telugu voice-to-text for Indian accents |
 | **Database** | PostgreSQL + pgvector | Relational + future embedding search |
 | **Cache/State** | Redis | Sub-ms state machine transitions |
 | **Provider** | Swiggy MCP (mock) | Drop-in replaceable adapter pattern |

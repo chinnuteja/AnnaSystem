@@ -85,19 +85,28 @@ async def execute_order(user_id: str, family_id: str, cart_data: dict, voice_ses
         return None
         
     # 5. Persist Order in DB
-    async with get_session() as session:
-        order = Order(
-            family_id=uuid.UUID(family_id),
-            ordering_user_id=uuid.UUID(user_id),
-            voice_session_id=uuid.UUID(voice_session_id) if voice_session_id and len(voice_session_id) == 36 else None,
-            provider=provider_name.value,
-            provider_order_id=result.provider_order_id,
-            cart_items=cart_data,
-            total_inr=cart_data.get("quote_total_inr", 0),
-            status="confirmed",
-            placed_at=datetime.now(timezone.utc),
-        )
-        session.add(order)
+    order = Order(
+        family_id=uuid.UUID(family_id),
+        ordering_user_id=uuid.UUID(user_id),
+        voice_session_id=uuid.UUID(voice_session_id) if voice_session_id and len(voice_session_id) == 36 else None,
+        provider=provider_name.value,
+        provider_order_id=result.provider_order_id,
+        cart_items=cart_data,
+        total_inr=cart_data.get("quote_total_inr", 0),
+        status="confirmed",
+        placed_at=datetime.now(timezone.utc),
+    )
+    try:
+        async with get_session() as session:
+            session.add(order)
+    except Exception:
+        logger.warning("Order persist failed with voice_session_id FK, retrying without it")
+        order.voice_session_id = None
+        try:
+            async with get_session() as session:
+                session.add(order)
+        except Exception as e2:
+            logger.error("Order persist failed entirely (non-fatal): %s", e2)
         
     logger.info(f"Order persisted. Provider ID: {result.provider_order_id}")
     return order
@@ -117,19 +126,27 @@ async def _persist_discovery_order(
         "dineout": "DINE-BOOK",
     }.get(source, "DISC-ORD")
 
-    async with get_session() as session:
-        order = Order(
-            family_id=uuid.UUID(family_id),
-            ordering_user_id=uuid.UUID(user_id),
-            voice_session_id=uuid.UUID(voice_session_id) if voice_session_id and len(voice_session_id) == 36 else None,
-            provider=cart_data.get("provider"),
-            provider_order_id=f"{prefix}-{uuid.uuid4().hex[:10].upper()}",
-            cart_items=cart_data,
-            total_inr=cart_data.get("quote_total_inr", 0),
-            status="confirmed",
-            placed_at=datetime.now(timezone.utc),
-        )
-        session.add(order)
+    order = Order(
+        family_id=uuid.UUID(family_id),
+        ordering_user_id=uuid.UUID(user_id),
+        voice_session_id=uuid.UUID(voice_session_id) if voice_session_id and len(voice_session_id) == 36 else None,
+        provider=cart_data.get("provider"),
+        provider_order_id=f"{prefix}-{uuid.uuid4().hex[:10].upper()}",
+        cart_items=cart_data,
+        total_inr=cart_data.get("quote_total_inr", 0),
+        status="confirmed",
+        placed_at=datetime.now(timezone.utc),
+    )
+    try:
+        async with get_session() as session:
+            session.add(order)
+    except Exception:
+        order.voice_session_id = None
+        try:
+            async with get_session() as session:
+                session.add(order)
+        except Exception as e2:
+            logger.error("Discovery order persist failed (non-fatal): %s", e2)
 
     logger.info("Discovery order persisted. Provider ID: %s", order.provider_order_id)
     return order

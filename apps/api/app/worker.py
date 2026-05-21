@@ -141,7 +141,7 @@ async def process_job(job: dict, csm: ConversationStateMachine):
         )
         await _send_reply(
             from_phone,
-            "Message body clear ga raanattu undi. Dayachesi malli type cheyyandi.",
+            "I couldn't read that message. Could you please type it again?",
             context="empty_text",
         )
 
@@ -166,7 +166,7 @@ async def process_job(job: dict, csm: ConversationStateMachine):
         stt_ms = int((time.monotonic() - t_stt0) * 1000)
         
         if not transcription.success or not transcription.text.strip():
-            reply_text = "Voice note clear ga vinipinchaledu. Dayachesi malli cheppandi leka text lo pampandi."
+            reply_text = "I couldn't hear that clearly. Could you please try again or type your message instead?"
             logger.warning(
                 "Audio transcription failed for %s: %s",
                 msg_id,
@@ -219,7 +219,7 @@ async def process_job(job: dict, csm: ConversationStateMachine):
         if location is None:
             await _send_reply(
                 from_phone,
-                "Location details ravaledu. Dayachesi malli share cheyyandi.",
+                "I couldn't get your location details. Please share your location again.",
                 context="location_invalid",
             )
             return
@@ -289,7 +289,7 @@ async def _run_with_ack(
         result = await asyncio.wait_for(task, timeout=max(0.1, HARD_TIMEOUT_SECONDS - ACK_DELAY_SECONDS))
     except asyncio.TimeoutError:
         task.cancel()
-        failure_text = "Sorry, konchem technical delay vachindi. Dayachesi malli try cheyandi."
+        failure_text = "Sorry, that took too long. Please try again."
         return {
             "reply_text": failure_text,
             "reply_to": to_phone,
@@ -299,7 +299,7 @@ async def _run_with_ack(
     except Exception:
         logger.exception("Pipeline crashed for recipient %s", to_phone)
         failure_text = (
-            "Sorry, ippudu oka technical issue vachindi. Konchem tarvata malli 'hi' ani try cheyandi."
+            "Sorry, something went wrong on my end. Please try again in a moment."
         )
         return {
             "reply_text": failure_text,
@@ -342,7 +342,7 @@ async def run_worker():
                 if to:
                     await _send_reply(
                         to,
-                        "Sorry, oka unexpected error vachindi. Team ki log vellindi; malli try cheyandi.",
+                        "Sorry, something unexpected happened. Please try again.",
                         context="job_fatal",
                     )
 

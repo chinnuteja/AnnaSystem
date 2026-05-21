@@ -1,0 +1,287 @@
+[Builders Club](https://mcp.swiggy.com/builders/)
+[Home](https://mcp.swiggy.com/builders/)
+[Developers](https://mcp.swiggy.com/builders/developers/)
+[Enterprises](https://mcp.swiggy.com/builders/enterprises/)
+[Docs](https://mcp.swiggy.com/builders/docs/)
+[Blog](https://mcp.swiggy.com/builders/blog/)
+[FAQ](https://mcp.swiggy.com/builders/)
+[Request Access](https://mcp.swiggy.com/builders/access/)
+[Home](https://mcp.swiggy.com/builders/docs/)
+[Start](https://mcp.swiggy.com/builders/docs/start/)
+[Build](https://mcp.swiggy.com/builders/docs/build/)
+[Reference](https://mcp.swiggy.com/builders/docs/reference/)
+[Operate](https://mcp.swiggy.com/builders/docs/operate/)
+- [Reference](https://mcp.swiggy.com/builders/docs/reference/)
+- Food15
+- Instamart14OverviewDiscovercreate_addressdelete_addressget_addressessearch_productsyour_go_to_itemsCartclear_cartget_cartupdate_cartOrdercheckoutTrackget_order_detailsget_orderstrack_orderSupport[report_error](https://mcp.swiggy.com/builders/docs/reference/instamart/report_error/)
+- [Overview](https://mcp.swiggy.com/builders/docs/reference/instamart/)
+- Discover
+- [create_address](https://mcp.swiggy.com/builders/docs/reference/instamart/create_address/)
+- [delete_address](https://mcp.swiggy.com/builders/docs/reference/instamart/delete_address/)
+- [get_addresses](https://mcp.swiggy.com/builders/docs/reference/instamart/get_addresses/)
+- [search_products](https://mcp.swiggy.com/builders/docs/reference/instamart/search_products/)
+- [your_go_to_items](https://mcp.swiggy.com/builders/docs/reference/instamart/your_go_to_items/)
+- Cart
+- [clear_cart](https://mcp.swiggy.com/builders/docs/reference/instamart/clear_cart/)
+- [get_cart](https://mcp.swiggy.com/builders/docs/reference/instamart/get_cart/)
+- [update_cart](https://mcp.swiggy.com/builders/docs/reference/instamart/update_cart/)
+- Order
+- [checkout](https://mcp.swiggy.com/builders/docs/reference/instamart/checkout/)
+- Track
+- [get_order_details](https://mcp.swiggy.com/builders/docs/reference/instamart/get_order_details/)
+- [get_orders](https://mcp.swiggy.com/builders/docs/reference/instamart/get_orders/)
+- [track_order](https://mcp.swiggy.com/builders/docs/reference/instamart/track_order/)
+- Support
+- [report_error](https://mcp.swiggy.com/builders/docs/reference/instamart/report_error/)
+- Dineout9
+- [Error codes](https://mcp.swiggy.com/builders/docs/reference/errors/)
+[Reference](https://mcp.swiggy.com/builders/docs/reference/)
+- [Overview](https://mcp.swiggy.com/builders/docs/reference/instamart/)
+- Discover
+- [create_address](https://mcp.swiggy.com/builders/docs/reference/instamart/create_address/)
+- [delete_address](https://mcp.swiggy.com/builders/docs/reference/instamart/delete_address/)
+- [get_addresses](https://mcp.swiggy.com/builders/docs/reference/instamart/get_addresses/)
+- [search_products](https://mcp.swiggy.com/builders/docs/reference/instamart/search_products/)
+- [your_go_to_items](https://mcp.swiggy.com/builders/docs/reference/instamart/your_go_to_items/)
+- Cart
+- [clear_cart](https://mcp.swiggy.com/builders/docs/reference/instamart/clear_cart/)
+- [get_cart](https://mcp.swiggy.com/builders/docs/reference/instamart/get_cart/)
+- [update_cart](https://mcp.swiggy.com/builders/docs/reference/instamart/update_cart/)
+- Order
+- [checkout](https://mcp.swiggy.com/builders/docs/reference/instamart/checkout/)
+- Track
+- [get_order_details](https://mcp.swiggy.com/builders/docs/reference/instamart/get_order_details/)
+- [get_orders](https://mcp.swiggy.com/builders/docs/reference/instamart/get_orders/)
+- [track_order](https://mcp.swiggy.com/builders/docs/reference/instamart/track_order/)
+- Support
+- [report_error](https://mcp.swiggy.com/builders/docs/reference/instamart/report_error/)
+[Overview](https://mcp.swiggy.com/builders/docs/reference/instamart/)
+[create_address](https://mcp.swiggy.com/builders/docs/reference/instamart/create_address/)
+[delete_address](https://mcp.swiggy.com/builders/docs/reference/instamart/delete_address/)
+[get_addresses](https://mcp.swiggy.com/builders/docs/reference/instamart/get_addresses/)
+[search_products](https://mcp.swiggy.com/builders/docs/reference/instamart/search_products/)
+[your_go_to_items](https://mcp.swiggy.com/builders/docs/reference/instamart/your_go_to_items/)
+[clear_cart](https://mcp.swiggy.com/builders/docs/reference/instamart/clear_cart/)
+[get_cart](https://mcp.swiggy.com/builders/docs/reference/instamart/get_cart/)
+
+[update_cart](https://mcp.swiggy.com/builders/docs/reference/instamart/update_cart/)
+[checkout](https://mcp.swiggy.com/builders/docs/reference/instamart/checkout/)
+[get_order_details](https://mcp.swiggy.com/builders/docs/reference/instamart/get_order_details/)
+[get_orders](https://mcp.swiggy.com/builders/docs/reference/instamart/get_orders/)
+[track_order](https://mcp.swiggy.com/builders/docs/reference/instamart/track_order/)
+[report_error](https://mcp.swiggy.com/builders/docs/reference/instamart/report_error/)
+[Error codes](https://mcp.swiggy.com/builders/docs/reference/errors/)
+- [Reference](https://mcp.swiggy.com/builders/docs/reference/)
+- Food15
+- Instamart14OverviewDiscovercreate_addressdelete_addressget_addressessearch_productsyour_go_to_itemsCartclear_cartget_cartupdate_cartOrdercheckoutTrackget_order_detailsget_orderstrack_orderSupport[report_error](https://mcp.swiggy.com/builders/docs/reference/instamart/report_error/)
+- [Overview](https://mcp.swiggy.com/builders/docs/reference/instamart/)
+- Discover
+- [create_address](https://mcp.swiggy.com/builders/docs/reference/instamart/create_address/)
+- [delete_address](https://mcp.swiggy.com/builders/docs/reference/instamart/delete_address/)
+- [get_addresses](https://mcp.swiggy.com/builders/docs/reference/instamart/get_addresses/)
+- [search_products](https://mcp.swiggy.com/builders/docs/reference/instamart/search_products/)
+- [your_go_to_items](https://mcp.swiggy.com/builders/docs/reference/instamart/your_go_to_items/)
+- Cart
+- [clear_cart](https://mcp.swiggy.com/builders/docs/reference/instamart/clear_cart/)
+- [get_cart](https://mcp.swiggy.com/builders/docs/reference/instamart/get_cart/)
+- [update_cart](https://mcp.swiggy.com/builders/docs/reference/instamart/update_cart/)
+- Order
+- [checkout](https://mcp.swiggy.com/builders/docs/reference/instamart/checkout/)
+- Track
+- [get_order_details](https://mcp.swiggy.com/builders/docs/reference/instamart/get_order_details/)
+- [get_orders](https://mcp.swiggy.com/builders/docs/reference/instamart/get_orders/)
+- [track_order](https://mcp.swiggy.com/builders/docs/reference/instamart/track_order/)
+- Support
+- [report_error](https://mcp.swiggy.com/builders/docs/reference/instamart/report_error/)
+- Dineout9
+- [Error codes](https://mcp.swiggy.com/builders/docs/reference/errors/)
+[Reference](https://mcp.swiggy.com/builders/docs/reference/)
+- [Overview](https://mcp.swiggy.com/builders/docs/reference/instamart/)
+- Discover
+- [create_address](https://mcp.swiggy.com/builders/docs/reference/instamart/create_address/)
+- [delete_address](https://mcp.swiggy.com/builders/docs/reference/instamart/delete_address/)
+- [get_addresses](https://mcp.swiggy.com/builders/docs/reference/instamart/get_addresses/)
+- [search_products](https://mcp.swiggy.com/builders/docs/reference/instamart/search_products/)
+- [your_go_to_items](https://mcp.swiggy.com/builders/docs/reference/instamart/your_go_to_items/)
+- Cart
+- [clear_cart](https://mcp.swiggy.com/builders/docs/reference/instamart/clear_cart/)
+- [get_cart](https://mcp.swiggy.com/builders/docs/reference/instamart/get_cart/)
+- [update_cart](https://mcp.swiggy.com/builders/docs/reference/instamart/update_cart/)
+- Order
+- [checkout](https://mcp.swiggy.com/builders/docs/reference/instamart/checkout/)
+- Track
+- [get_order_details](https://mcp.swiggy.com/builders/docs/reference/instamart/get_order_details/)
+- [get_orders](https://mcp.swiggy.com/builders/docs/reference/instamart/get_orders/)
+- [track_order](https://mcp.swiggy.com/builders/docs/reference/instamart/track_order/)
+- Support
+- [report_error](https://mcp.swiggy.com/builders/docs/reference/instamart/report_error/)
+[Overview](https://mcp.swiggy.com/builders/docs/reference/instamart/)
+[create_address](https://mcp.swiggy.com/builders/docs/reference/instamart/create_address/)
+[delete_address](https://mcp.swiggy.com/builders/docs/reference/instamart/delete_address/)
+[get_addresses](https://mcp.swiggy.com/builders/docs/reference/instamart/get_addresses/)
+[search_products](https://mcp.swiggy.com/builders/docs/reference/instamart/search_products/)
+[your_go_to_items](https://mcp.swiggy.com/builders/docs/reference/instamart/your_go_to_items/)
+[clear_cart](https://mcp.swiggy.com/builders/docs/reference/instamart/clear_cart/)
+[get_cart](https://mcp.swiggy.com/builders/docs/reference/instamart/get_cart/)
+[update_cart](https://mcp.swiggy.com/builders/docs/reference/instamart/update_cart/)
+[checkout](https://mcp.swiggy.com/builders/docs/reference/instamart/checkout/)
+
+[get_order_details](https://mcp.swiggy.com/builders/docs/reference/instamart/get_order_details/)
+[get_orders](https://mcp.swiggy.com/builders/docs/reference/instamart/get_orders/)
+[track_order](https://mcp.swiggy.com/builders/docs/reference/instamart/track_order/)
+[report_error](https://mcp.swiggy.com/builders/docs/reference/instamart/report_error/)
+[Error codes](https://mcp.swiggy.com/builders/docs/reference/errors/)
+1. [Docs](https://mcp.swiggy.com/builders/docs/)›
+2. [Reference](https://mcp.swiggy.com/builders/docs/reference/)›
+3. Instamart
+[Docs](https://mcp.swiggy.com/builders/docs/)
+[Reference](https://mcp.swiggy.com/builders/docs/reference/)
+
+# Instamart
+
+Swiggy Instamart MCP Server - Your AI-powered grocery and essentials shopping assistant. Get everything from fresh fruits, vegetables, dairy, and staples to snacks, beverages, ...
+Swiggy Instamart MCP Server - Your AI-powered grocery and essentials shopping assistant. Get everything from fresh fruits, vegetables, dairy, and staples to snacks, beverages, personal care, electronics, baby care, pet supplies, and more. Browse a wide variety of products across 50+ categories, enjoy great deals, manage your cart, and place orders with quick delivery right to your doorstep.
+- Endpoint: POST mcp.swiggy.com/im
+- Tools available: 13
+
+```
+POST mcp.swiggy.com/im
+```
+
+### Discover
+[create_address](https://mcp.swiggy.com/builders/docs/reference/instamart/create_address/)
+
+```
+create_address
+```
+
+[delete_address](https://mcp.swiggy.com/builders/docs/reference/instamart/delete_address/)
+
+```
+delete_address
+```
+
+[get_addresses](https://mcp.swiggy.com/builders/docs/reference/instamart/get_addresses/)
+
+```
+get_addresses
+```
+
+[search_products](https://mcp.swiggy.com/builders/docs/reference/instamart/search_products/)
+
+```
+search_products
+```
+
+[your_go_to_items](https://mcp.swiggy.com/builders/docs/reference/instamart/your_go_to_items/)
+
+```
+your_go_to_items
+```
+
+### Cart
+[clear_cart](https://mcp.swiggy.com/builders/docs/reference/instamart/clear_cart/)
+
+```
+clear_cart
+```
+
+[get_cart](https://mcp.swiggy.com/builders/docs/reference/instamart/get_cart/)
+
+```
+get_cart
+```
+
+[update_cart](https://mcp.swiggy.com/builders/docs/reference/instamart/update_cart/)
+
+```
+update_cart
+```
+
+### Order
+[checkout](https://mcp.swiggy.com/builders/docs/reference/instamart/checkout/)
+
+```
+checkout
+```
+
+### Track
+[get_order_details](https://mcp.swiggy.com/builders/docs/reference/instamart/get_order_details/)
+
+```
+get_order_details
+```
+
+[get_orders](https://mcp.swiggy.com/builders/docs/reference/instamart/get_orders/)
+
+```
+get_orders
+```
+
+[track_order](https://mcp.swiggy.com/builders/docs/reference/instamart/track_order/)
+
+```
+track_order
+```
+
+### Support
+[report_error](https://mcp.swiggy.com/builders/docs/reference/instamart/report_error/)
+
+```
+report_error
+```
+
+## Related
+
+- [Authenticate](https://mcp.swiggy.com/builders/docs/start/authenticate/)
+- [Error codes](https://mcp.swiggy.com/builders/docs/reference/errors/)
+- [Quickstart](https://mcp.swiggy.com/builders/docs/start/developer/)
+[Authenticate](https://mcp.swiggy.com/builders/docs/start/authenticate/)
+[Error codes](https://mcp.swiggy.com/builders/docs/reference/errors/)
+[Quickstart](https://mcp.swiggy.com/builders/docs/start/developer/)
+[← Previousreport_error](https://mcp.swiggy.com/builders/docs/reference/food/report_error/)
+[Next →create_address](https://mcp.swiggy.com/builders/docs/reference/instamart/create_address/)
+- Tools by stage
+- Discover
+- Cart
+- Order
+- Track
+- Support
+- Related
+Tools by stage
+Discover
+Cart
+Order
+Track
+Support
+Related
+Cook on Swiggy's MCP platform. Open to developers, startups, and enterprises.
+[builders@swiggy.in](mailto:builders@swiggy.in)
+
+#### Program
+- [For Developers](https://mcp.swiggy.com/builders/developers/)
+- [For Enterprises](https://mcp.swiggy.com/builders/enterprises/)
+- [How It Works](https://mcp.swiggy.com/builders/)
+- [Benefits](https://mcp.swiggy.com/builders/)
+[For Developers](https://mcp.swiggy.com/builders/developers/)
+[For Enterprises](https://mcp.swiggy.com/builders/enterprises/)
+[How It Works](https://mcp.swiggy.com/builders/)
+[Benefits](https://mcp.swiggy.com/builders/)
+
+#### Resources
+- [Guidelines](https://mcp.swiggy.com/builders/access/)
+- [FAQ](https://mcp.swiggy.com/builders/)
+- [Apply](https://mcp.swiggy.com/builders/access/)
+- [llms.txt](https://mcp.swiggy.com/builders/llms.txt)
+[Guidelines](https://mcp.swiggy.com/builders/access/)
+[FAQ](https://mcp.swiggy.com/builders/)
+[Apply](https://mcp.swiggy.com/builders/access/)
+[llms.txt](https://mcp.swiggy.com/builders/llms.txt)
+
+#### Legal
+- [Privacy Policy](https://www.swiggy.com/privacy-policy)
+- [Terms and Conditions](https://www.swiggy.com/terms-and-conditions)
+[Privacy Policy](https://www.swiggy.com/privacy-policy)
+[Terms and Conditions](https://www.swiggy.com/terms-and-conditions)
+© 2026 Swiggy. All rights reserved.
+Swiggy Builders Club — MCP Partnership Program

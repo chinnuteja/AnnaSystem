@@ -84,6 +84,19 @@ async def resolve_and_quote(intent: ParsedIntent, location: Location):
                 conditions = [DB_CanonicalSKU.category == vocab_term.maps_to_category]
                 if vocab_term.maps_to_brand:
                     conditions.append(DB_CanonicalSKU.brand == vocab_term.maps_to_brand)
+                # Also try to narrow by brand/name from item text or brand_hint
+                brand_hint = (item.brand_hint or "").lower().strip()
+                if not vocab_term.maps_to_brand:
+                    # Build name-match conditions from search words (ALL words must match)
+                    name_words = [w for w in (brand_hint or search_text).split() if len(w) >= 3]
+                    if name_words:
+                        for w in name_words:
+                            conditions.append(
+                                or_(
+                                    DB_CanonicalSKU.display_name_en.ilike(f"%{w}%"),
+                                    cast(DB_CanonicalSKU.display_names_local, String).ilike(f"%{w}%"),
+                                )
+                            )
                 stmt = stmt.where(and_(*conditions))
             else:
                 # 3. Fallback to text match if no vocabulary (since embeddings are random right now)
@@ -105,7 +118,23 @@ async def resolve_and_quote(intent: ParsedIntent, location: Location):
             ).limit(1)
             result = await session.execute(stmt)
             row = result.first()
-            
+
+            # Fallback: if strict name+category match found nothing, try category-only
+            if not row and vocab_term:
+                logger.info(f"Strict name match failed for '{search_text}', falling back to category-only")
+                fallback_stmt = select(DB_CanonicalSKU, ProviderSKUMapping).join(
+                    ProviderSKUMapping, DB_CanonicalSKU.id == ProviderSKUMapping.canonical_sku_id
+                ).where(
+                    ProviderSKUMapping.provider == "swiggy_instamart_mcp",
+                    DB_CanonicalSKU.category == vocab_term.maps_to_category,
+                ).order_by(
+                    desc(DB_CanonicalSKU.brand_partnership_weight),
+                    DB_CanonicalSKU.last_seen_at.desc().nullslast(),
+                    DB_CanonicalSKU.display_name_en,
+                ).limit(1)
+                fb_result = await session.execute(fallback_stmt)
+                row = fb_result.first()
+
             if not row and not vocab_term:
                 logger.info(f"Text search failed for '{search_text}'. Attempting semantic fallback.")
                 if search_text in _SEMANTIC_BLOCKLIST:
@@ -151,7 +180,7 @@ async def resolve_and_quote(intent: ParsedIntent, location: Location):
                 )
                 avail = avail_res.get(mapping.provider_sku_id)
                 in_stock = avail.available if avail else False
-                current_price = avail.current_price_inr if avail else mapping.last_price_inr
+                current_price = (avail.current_price_inr if avail and avail.current_price_inr else None) or mapping.last_price_inr or db_sku.typical_price_band_min_inr or 0
                 interface_sku = InterfaceCanonicalSKU(
                     canonical_key=db_sku.canonical_key,
                     display_name=db_sku.display_name_en,
@@ -303,7 +332,7 @@ async def _semantic_sku_search(query_text: str, session) -> SemanticCategoryHint
             model=settings.azure_openai_deployment,
             messages=[{"role": "user", "content": prompt}],
             temperature=0,
-            max_tokens=80,
+            max_completion_tokens=80,
         )
         raw = (response.choices[0].message.content or "").strip()
         data = json.loads(raw)

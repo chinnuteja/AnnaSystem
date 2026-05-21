@@ -25,7 +25,7 @@ from app.agents.brain_prompts import get_prompt_builder
 logger = logging.getLogger("foodleaf.brain")
 
 # Confidence gate: override low-confidence actions to unclear
-_CONFIDENCE_THRESHOLD = float(os.getenv("BRAIN_CONFIDENCE_THRESHOLD", "0.5"))
+_CONFIDENCE_THRESHOLD = float(os.getenv("BRAIN_CONFIDENCE_THRESHOLD", "0.40"))
 
 # Response cache settings
 _CACHE_TTL_SEC = 5 * 60  # 5 minutes
@@ -249,7 +249,7 @@ def _build_history_block(history: list[dict]) -> str:
 def _build_system_prompt(
     state_description: str,
     history_block: str,
-    user_language: str = "te-IN",
+    user_language: str = "en-IN",
     *,
     family_context: dict | None = None,
     occasion_hint: str | None = None,
@@ -271,10 +271,10 @@ def _build_system_prompt(
 # ---------------------------------------------------------------------------
 
 _BRAIN_ACTION_SCHEMA = {
-    "type": "object",
+    "type": "OBJECT",
     "properties": {
         "action": {
-            "type": "string",
+            "type": "STRING",
             "enum": [
                 "greet", "select_option", "more_options", "order_items",
                 "discover", "confirm", "cancel", "correct", "track_order",
@@ -282,45 +282,58 @@ _BRAIN_ACTION_SCHEMA = {
                 "approve", "reject_approval",
             ],
         },
-        "selected_index": {"type": ["integer", "null"]},
-        "selected_name": {"type": ["string", "null"]},
+        "selected_index": {"type": "INTEGER", "nullable": True},
+        "selected_name": {"type": "STRING", "nullable": True},
         "items": {
-            "type": "array",
+            "type": "ARRAY",
             "items": {
-                "type": "object",
+                "type": "OBJECT",
                 "properties": {
-                    "text": {"type": "string"},
-                    "quantity": {"type": ["integer", "null"]},
-                    "unit": {"type": ["string", "null"]},
-                    "brand_hint": {"type": ["string", "null"]},
+                    "text": {"type": "STRING"},
+                    "quantity": {"type": "INTEGER", "nullable": True},
+                    "unit": {"type": "STRING", "nullable": True},
+                    "brand_hint": {"type": "STRING", "nullable": True},
                 },
                 "required": ["text"],
             },
         },
-        "discovery_query": {"type": ["string", "null"]},
-        "domain_hint": {"type": "string", "enum": ["grocery", "food_delivery", "dineout", "any"]},
-        "address_text": {"type": ["string", "null"]},
-        "reply_text": {"type": ["string", "null"]},
-        "clarification_question": {"type": ["string", "null"]},
-        "detected_language": {"type": "string", "enum": ["te", "en", "te-en", "hi", "hi-en"]},
-        "confidence": {"type": "number"},
-        "reasoning": {"type": ["string", "null"]},
-        "approval_target": {"type": ["string", "null"]},
+        "discovery_query": {"type": "STRING", "nullable": True},
+        "domain_hint": {"type": "STRING", "enum": ["grocery", "food_delivery", "dineout", "any"]},
+        "address_text": {"type": "STRING", "nullable": True},
+        "reply_text": {"type": "STRING", "nullable": True},
+        "clarification_question": {"type": "STRING", "nullable": True},
+        "detected_language": {"type": "STRING", "enum": ["te", "en", "te-en", "hi", "hi-en"]},
+        "confidence": {"type": "NUMBER"},
+        "reasoning": {"type": "STRING", "nullable": True},
+        "approval_target": {"type": "STRING", "nullable": True},
     },
     "required": ["action", "detected_language", "confidence"],
 }
 
 
 async def _call_gemini(system_prompt: str, user_message: str) -> BrainAction | None:
-    """Call Gemini 3 Flash with structured JSON output."""
-    if not settings.gemini_api_key:
+    """Call Gemini 3.5 Flash with structured JSON output.
+    
+    Supports two auth modes:
+    - Vertex AI: GOOGLE_APPLICATION_CREDENTIALS + GOOGLE_CLOUD_PROJECT (preferred)
+    - API Key: GEMINI_API_KEY (fallback)
+    """
+    if not settings.gemini_api_key and not settings.google_cloud_project:
         return None
 
     try:
         from google import genai
         from google.genai import types
 
-        client = genai.Client(api_key=settings.gemini_api_key)
+        # Prefer Vertex AI if Google Cloud project is configured
+        if settings.google_cloud_project:
+            client = genai.Client(
+                vertexai=True,
+                project=settings.google_cloud_project,
+                location=settings.google_cloud_location,
+            )
+        else:
+            client = genai.Client(api_key=settings.gemini_api_key)
 
         def _sync_call():
             return client.models.generate_content(
@@ -344,8 +357,8 @@ async def _call_gemini(system_prompt: str, user_message: str) -> BrainAction | N
         data = json.loads(response.text)
         action = BrainAction.model_validate(data)
         logger.info(
-            "Gemini brain: action=%s confidence=%.2f reasoning=%s",
-            action.action, action.confidence, (action.reasoning or "")[:100],
+            "Gemini brain (%s): action=%s confidence=%.2f reasoning=%s",
+            settings.gemini_model, action.action, action.confidence, (action.reasoning or "")[:100],
         )
         return action
 
@@ -354,7 +367,7 @@ async def _call_gemini(system_prompt: str, user_message: str) -> BrainAction | N
         return None
 
 
-async def _call_azure_openai(system_prompt: str, user_message: str, language: str = "te-IN") -> BrainAction:
+async def _call_azure_openai(system_prompt: str, user_message: str, language: str = "en-IN") -> BrainAction:
     """Call Azure OpenAI as fallback with structured output."""
     from openai import AsyncAzureOpenAI
 
@@ -432,6 +445,11 @@ async def _call_azure_openai(system_prompt: str, user_message: str, language: st
             timeout=5.0,
         )
         parsed = completion.choices[0].message.parsed
+        if not parsed:
+            # Fallback: parse from content string if structured parsing returned None
+            content = completion.choices[0].message.content
+            if content:
+                parsed = json.loads(content)
         if parsed:
             action = BrainAction.model_validate(parsed)
             logger.info(
@@ -443,7 +461,7 @@ async def _call_azure_openai(system_prompt: str, user_message: str, language: st
         logger.warning("Azure OpenAI brain call failed: %s", e)
 
     # Last resort: return unclear
-    lang = language[:2] if language else "hi-en"
+    lang = language[:2] if language else "en"
     if lang == "hi":
         return BrainAction(
             action="unclear",
@@ -453,11 +471,20 @@ async def _call_azure_openai(system_prompt: str, user_message: str, language: st
             confidence=0.3,
             reasoning="Both LLM calls failed",
         )
+    if lang == "te":
+        return BrainAction(
+            action="unclear",
+            clarification_question="Sare, emi kavali? Groceries, food delivery, leda dineout?",
+            reply_text="Sare, emi kavali? Cheppandi.",
+            detected_language="te-en",
+            confidence=0.3,
+            reasoning="Both LLM calls failed",
+        )
     return BrainAction(
         action="unclear",
-        clarification_question="Sare, emi kavali? Groceries, food delivery, leda dineout?",
-        reply_text="Sare, emi kavali? Cheppandi.",
-        detected_language="te-en",
+        clarification_question="What would you like? Groceries, food delivery, or dineout?",
+        reply_text="Sorry, I didn't catch that. What can I help you with?",
+        detected_language="en",
         confidence=0.3,
         reasoning="Both LLM calls failed",
     )
@@ -472,7 +499,7 @@ async def decide(
     *,
     conversation_history: list[dict],
     current_state: dict | None = None,
-    language: str = "te-IN",
+    language: str = "en-IN",
     redis: Any = None,
     family_context: dict | None = None,
     occasion_hint: str | None = None,
@@ -518,13 +545,13 @@ async def decide(
     # Track prompt version for observability
     _, prompt_version = get_prompt_builder()
 
-    # Try Gemini first, then Azure OpenAI
-    action = await _call_gemini(system_prompt, text)
-    model_used = "gemini"
+    # Try Azure OpenAI first, then Gemini as fallback
+    action = await _call_azure_openai(system_prompt, text, language)
+    model_used = "azure_openai"
 
     if action is None:
-        action = await _call_azure_openai(system_prompt, text, language)
-        model_used = "azure_openai"
+        action = await _call_gemini(system_prompt, text)
+        model_used = "gemini"
 
     # Confidence gate: override low-confidence actions to unclear
     if (
@@ -536,11 +563,20 @@ async def decide(
             "Low confidence %.2f for action=%s, overriding to unclear (threshold=%.2f)",
             action.confidence, original_action, _CONFIDENCE_THRESHOLD,
         )
+        _fallback_q = {
+            "hi": "Kya chahiye? Clear bataiye — grocery, food, ya kuch aur?",
+            "te": "Emi kavali? Clear ga cheppandi — groceries, food, leka dineout?",
+        }
+        _fallback_r = {
+            "hi": "Samajh nahi aaya, dobara bataiye?",
+            "te": "Hmm, clear ga artham kaledu. Malli cheppandi?",
+        }
+        _lang_prefix = (action.detected_language or "en")[:2]
         action = BrainAction(
             action="unclear",
             clarification_question=action.clarification_question
-                or ("Kya chahiye? Clear bataiye — grocery, food, ya kuch aur?" if action.detected_language.startswith("hi") else "Emi kavali? Clear ga cheppandi — groceries, food, leka dineout?"),
-            reply_text=action.reply_text or ("Samajh nahi aaya, dobara bataiye?" if action.detected_language.startswith("hi") else "Hmm, clear ga artham kaledu. Malli cheppandi?"),
+                or _fallback_q.get(_lang_prefix, "What would you like? Groceries, food delivery, or dineout?"),
+            reply_text=action.reply_text or _fallback_r.get(_lang_prefix, "Sorry, I didn't catch that. Could you tell me what you need?"),
             detected_language=action.detected_language,
             confidence=action.confidence,
             reasoning=f"Original action={original_action} overridden due to low confidence ({action.confidence:.2f} < {_CONFIDENCE_THRESHOLD})",

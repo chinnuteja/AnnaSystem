@@ -2,6 +2,14 @@
 MockSwiggyAdapter — implements IGroceryProvider, IFoodProvider, IDineoutProvider
 against static JSON catalogs.
 
+Mirrors Swiggy MCP tool signatures (mcp.swiggy.com/im):
+  - search_products(addressId, query, offset?) → products with variants[].spinId
+  - update_cart(items: [{spinId, quantity}]) → cart state
+  - get_cart() → items[], bill breakdown
+  - checkout(paymentMethod) → orderId
+  - track_order(orderId) → status + ETA
+  - your_go_to_items(addressId) → frequently ordered items
+
 Behavior:
 - Realistic latency (50-300ms per call) so latency budget testing is meaningful
 - Deterministic failures (~3% rate) so retry/circuit-breaker logic is exercised
@@ -11,8 +19,9 @@ Behavior:
 
 Swap-in plan:
 - Day 1 to Day N: agents/* call MockSwiggyAdapter
-- When real Swiggy MCP keys arrive: implement SwiggyAdapter against real MCP
-- One-line config change in providers/router.py — swap "mock" → "real"
+- When real Swiggy MCP keys arrive: implement SwiggyMCPAdapter with OAuth 2.1 + PKCE
+  calling POST mcp.swiggy.com/im over streamable HTTP (JSON-RPC / MCP protocol)
+- One-line config change in providers/router.py — swap "mock" → "mcp"
 - All agent code stays unchanged
 """
 
@@ -59,8 +68,8 @@ async def _simulate_latency(min_ms: int = 50, max_ms: int = 300):
     await asyncio.sleep(random.uniform(min_ms / 1000, max_ms / 1000))
 
 
-def _maybe_fail(failure_rate: float = 0.03):
-    """Deterministic failure injection. Configure failure_rate=0.0 to disable."""
+def _maybe_fail(failure_rate: float = 0.0):
+    """Deterministic failure injection. Set to 0.0 for demo stability; raise to 0.03 for resilience testing."""
     if random.random() < failure_rate:
         raise RuntimeError("MOCK_PROVIDER_TRANSIENT_FAILURE: simulated upstream error")
 
@@ -183,9 +192,11 @@ class MockSwiggyInstamartAdapter:
         _maybe_fail()
 
         result = {}
+        matched_ids = set()
         for sku in _INSTAMART["skus"]:
             if sku["provider_specific_id"] in sku_ids or sku["canonical_key"] in sku_ids:
                 key = sku["provider_specific_id"]
+                matched_ids.add(key)
                 result[key] = AvailabilityResult(
                     sku_id=key,
                     available=sku["in_stock"],
@@ -193,6 +204,17 @@ class MockSwiggyInstamartAdapter:
                     pack_size_available=[sku["pack_size"]],
                     delivery_eta_min=sku.get("delivery_eta_min"),
                     reason_if_unavailable=None if sku["in_stock"] else "out_of_stock",
+                )
+        # For DB-sourced SKUs not in mock catalog, default to available
+        for sid in sku_ids:
+            if sid not in matched_ids and sid not in result:
+                result[sid] = AvailabilityResult(
+                    sku_id=sid,
+                    available=True,
+                    current_price_inr=0,
+                    pack_size_available=[],
+                    delivery_eta_min=15,
+                    reason_if_unavailable=None,
                 )
         return result
 
@@ -353,6 +375,176 @@ class MockSwiggyInstamartAdapter:
         # Crude total
         return CancellationResult(success=True, refund_amount_inr=500, refund_eta_hours=2,
                                   cancellation_fee_inr=0, failure_reason=None)
+
+    # =========================================================================
+    # MCP-Aligned Aliases (mirrors mcp.swiggy.com/im tool signatures)
+    # When real MCP keys arrive, these become the primary interface.
+    # =========================================================================
+
+    async def search_products(
+        self, address_id: str, query: str, offset: int = 0, limit: int = 5
+    ) -> dict:
+        """MCP tool: search_products(addressId, query, offset?)
+        Returns products with variants[].spinId."""
+        location = Location(latitude=17.4486, longitude=78.3792, pincode="500032", city="Hyderabad")
+        skus = await self.search_skus(query, "en-IN", location, limit=limit)
+        products = []
+        for sku in skus[offset:offset + limit]:
+            products.append({
+                "productId": sku.canonical_key,
+                "name": sku.display_name,
+                "brand": sku.brand,
+                "category": sku.category,
+                "variants": [{
+                    "spinId": sku.provider_specific_id,
+                    "packSize": sku.pack_size,
+                    "price": sku.estimated_price_inr,
+                    "inStock": sku.in_stock,
+                    "eta": sku.delivery_eta_min,
+                }],
+            })
+        return {"success": True, "data": {"products": products}, "message": f"Found {len(products)} products"}
+
+    async def your_go_to_items(self, address_id: str) -> dict:
+        """MCP tool: your_go_to_items(addressId) — frequently ordered items."""
+        # Return top 5 items from catalog as "go-to" items
+        go_to = _INSTAMART["skus"][:5]
+        items = []
+        for sku in go_to:
+            items.append({
+                "spinId": sku["provider_specific_id"],
+                "name": sku["display_name"],
+                "brand": sku["brand"],
+                "packSize": sku["pack_size"],
+                "price": sku["estimated_price_inr"],
+                "lastOrdered": "2026-05-15",
+            })
+        return {"success": True, "data": {"items": items}, "message": "Your frequently ordered items"}
+
+    async def update_cart(self, items: list[dict], selected_address_id: str = "addr_default") -> dict:
+        """MCP tool: update_cart(selectedAddressId, items: [{spinId, quantity}])
+        Replaces entire cart with the provided items."""
+        location = Location(latitude=17.4486, longitude=78.3792, pincode="500032", city="Hyderabad")
+        cart_items = []
+        for item_spec in items:
+            spin_id = item_spec.get("spinId")
+            qty = item_spec.get("quantity", 1)
+            sku_data = next((s for s in _INSTAMART["skus"] if s["provider_specific_id"] == spin_id), None)
+            if sku_data:
+                cart_items.append(CartItem(canonical_sku=_to_canonical_sku(sku_data), quantity=qty))
+        cart = await self.assemble_cart(cart_items, location)
+        return {"success": True, "data": {"cartId": cart.provider_cart_id, "itemCount": len(cart.items)}, "message": "Cart updated"}
+
+    async def get_cart(self) -> dict:
+        """MCP tool: get_cart() — returns items[], bill breakdown."""
+        if not _CARTS:
+            return {"success": True, "data": {"items": [], "bill": {}}, "message": "Cart is empty"}
+        cart = list(_CARTS.values())[-1]  # Last active cart
+        quote = await self.quote_cart(cart)
+        items = []
+        for li in quote.line_items:
+            items.append({
+                "name": li.display_name,
+                "brand": li.brand,
+                "packSize": li.pack_size_label,
+                "qty": li.qty,
+                "unitPrice": li.unit_price_inr,
+                "lineTotal": li.line_total_inr,
+                "inStock": li.in_stock,
+            })
+        return {
+            "success": True,
+            "data": {
+                "items": items,
+                "bill": {
+                    "subtotal": quote.subtotal_inr,
+                    "deliveryFee": quote.delivery_fee_inr,
+                    "handlingFee": quote.handling_fee_inr,
+                    "taxes": quote.taxes_inr,
+                    "discount": quote.discount_inr,
+                    "total": quote.total_inr,
+                    "appliedOffers": quote.applied_offers,
+                },
+                "estimatedDelivery": {"min": quote.estimated_delivery_min, "max": quote.estimated_delivery_max},
+            },
+            "message": f"Cart has {len(items)} items, total ₹{quote.total_inr}",
+        }
+
+    async def checkout(self, address_id: str = "addr_default", payment_method: str = "COD") -> dict:
+        """MCP tool: checkout(addressId, paymentMethod) — places order, returns orderId."""
+        if not _CARTS:
+            return {"success": False, "error": {"message": "No active cart to checkout"}}
+        cart = list(_CARTS.values())[-1]
+        # For demo, simulate a paid payment ref (COD = no upfront charge)
+        fake_payment = PaymentRef(
+            payment_request_id=_new_id("PAY"),
+            razorpay_payment_id=_new_id("RZPY"),
+            amount_paid_inr=99999,  # COD: no limit
+            paid_at=datetime.utcnow(),
+        )
+        customer = CustomerProfile(
+            user_id="demo", name="Demo User", phone_e164="+918247628278",
+            delivery_location=Location(latitude=17.4486, longitude=78.3792, pincode="500032", city="Hyderabad"),
+            preferred_language="en-IN",
+        )
+        result = await self.execute_checkout(cart, fake_payment, customer)
+        if result.success:
+            return {
+                "success": True,
+                "data": {"orderId": result.provider_order_id, "total": result.final_total_inr,
+                         "estimatedDelivery": result.estimated_delivery_at.isoformat() if result.estimated_delivery_at else None},
+                "message": f"Order placed! ID: {result.provider_order_id}",
+            }
+        return {"success": False, "error": {"message": result.failure_reason}}
+
+    async def clear_cart(self) -> dict:
+        """MCP tool: clear_cart() — removes all items from cart."""
+        _CARTS.clear()
+        return {"success": True, "data": {}, "message": "Cart cleared"}
+
+    async def get_addresses(self) -> dict:
+        """MCP tool: get_addresses() — returns saved delivery addresses."""
+        return {
+            "success": True,
+            "data": {
+                "addresses": [{
+                    "addressId": "addr_home_01",
+                    "label": "Home",
+                    "full": "Flat 401, Mithila Apartments, Gachibowli, Hyderabad 500032",
+                    "latitude": 17.4486,
+                    "longitude": 78.3792,
+                    "pincode": "500032",
+                }]
+            },
+            "message": "1 saved address",
+        }
+
+    async def get_orders(self) -> dict:
+        """MCP tool: get_orders() — returns recent orders."""
+        orders = []
+        for oid, data in _ORDERS.items():
+            orders.append({
+                "orderId": oid,
+                "status": data["status"].value,
+                "placedAt": data["placed_at"].isoformat(),
+            })
+        return {"success": True, "data": {"orders": orders}, "message": f"{len(orders)} order(s)"}
+
+    async def get_order_details(self, order_id: str) -> dict:
+        """MCP tool: get_order_details(orderId) — returns order details."""
+        if order_id not in _ORDERS:
+            return {"success": False, "error": {"message": f"Order {order_id} not found"}}
+        order = _ORDERS[order_id]
+        return {
+            "success": True,
+            "data": {
+                "orderId": order_id,
+                "status": order["status"].value,
+                "placedAt": order["placed_at"].isoformat(),
+                "eta": order["eta"].isoformat() if order.get("eta") else None,
+            },
+            "message": f"Order {order_id}: {order['status'].value}",
+        }
 
 
 # ============================================================================
