@@ -1,8 +1,8 @@
-<p align="center">
+<img width="492" height="146" alt="image" src="https://github.com/user-attachments/assets/ae7b4841-0cc7-4ed3-bd1b-4ea95c19c5b1" /><p align="center">
   <img src="https://em-content.zobj.net/source/apple/391/diya-lamp_1fa94.png" width="80" />
 </p>
 
-<h1 align="center">Anna</h1>
+<h1 align="center">Anna(https://anna-eight-sigma.vercel.app/)</h1>
 
 <p align="center">
   <strong>WhatsApp AI concierge for Indian families living apart</strong><br/>
